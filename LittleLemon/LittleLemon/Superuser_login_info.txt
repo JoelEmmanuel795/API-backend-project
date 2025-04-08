@@ -1,0 +1,11 @@
+Username: admin 
+Email: admin@example.com
+Password: adminpass123
+
+----
+
+-- Users --
+
+Username | Password       | Group
+Marco     marcomanager       Manager
+Giovanni  giovannidelivery   Delivery
