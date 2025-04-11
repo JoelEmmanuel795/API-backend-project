@@ -9,3 +9,6 @@ Password: adminpass123
 Username | Password       | Group
 Marco     marcomanager       Manager
 Giovanni  giovannidelivery   Delivery
+John      johnuser	     User
+
+""

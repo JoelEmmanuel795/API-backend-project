@@ -7,7 +7,6 @@ Superuser (for Django Admin):
 Username: admin
 Email: admin@example.com
 Password: adminpass123
-(pre-generated token: 6caa34e312aabfe6fe9537faa278c77c4eb116e3)
 
 Access: http://127.0.0.1:8000/admin/
 
@@ -23,7 +22,18 @@ User Accounts
 |-----------|------------------|---------------|--------------------------------------|
 | Marco     | marcomanager     | Manager       | Can add/update/delete menu items, assign delivery crew, and set item of the day |
 | Giovanni  | giovannidelivery | DeliveryCrew  | Can view assigned orders and mark them as delivered |
+| Michael   | None             | Manager       | Can register, login, browse menu, add to cart, and place orders |
+| Manuela   | None             | DeliveryCrew  | Can register, login, browse menu, add to cart, and place orders |
 | John      | johnuser         | (Customer)    | Can register, login, browse menu, add to cart, and place orders |
+| jonas     | jjjcustomer      | (Customer)    | Can register, login, browse menu, add to cart, and place orders |
+
+
+Use returned token in headers:
+===============================
+(pre-generated admin token: 6caa34e312aabfe6fe9537faa278c77c4eb116e3)
+(pre-generated token for Marco: 9e85a24a56bd974614db4294248aee49e39855a7)
+(  Giovanni token -> 644ef2692bea50bd4d1ab0f255945338c6001eb5   )
+( jonas token -> c5f6baddb2386cdd9d1e03b51a7522d3465b2fc9)
 
 
 API Testing Guide (use Postman, Insomnia, or curl):
@@ -37,15 +47,10 @@ Body:
   "password": "marcomanager"
 }
 
-Use returned token in headers:
-Authorization: Token <your_token>
-(pre-generated token for Marco: 9e85a24a56bd974614db4294248aee49e39855a7)
-(  Giovanni token -> 644ef2692bea50bd4d1ab0f255945338c6001eb5   )
-( jonas token -> c5f6baddb2386cdd9d1e03b51a7522d3465b2fc9)
 
 Testable Endpoints:
 ----------------------
-GET    /api/menuitems/
+GET    /api/menu-items/
 POST   /api/cart/menu-items
 GET    /api/cart/menu-items
 POST   /api/orders
