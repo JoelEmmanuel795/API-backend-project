@@ -8,33 +8,41 @@ from django.db import transaction
 from .models import MenuItem, Category, Cart, Order, Order_Item
 from .serializers import MenuItemSerializer, CategorySerializer, CartSerializer, OrderSerializer, OrderItemSerializer, UserSerializer
 from .permissions import IsManager, IsDeliveryCrew
+from datetime import date
 
 class MenuItemViewSet(viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['category__title']
+    ordering_fields = ['price']
 
     def get_permissions(self):
         if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [IsAuthenticated()]
+            return [IsAdminUser()]  # Only admins (or managers if adjusted) can write
+        return [IsAuthenticated()]  # Any logged-in user can view
 
-class MenuItemListView(generics.ListAPIView):
-    queryset = MenuItem.objects.all()
-    serializer_class = MenuItemSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    ordering_fields = ['price']
-    search_fields = ['category__title']
+# class MenuItemListView(generics.ListAPIView):
+#     queryset = MenuItem.objects.all()
+#     serializer_class = MenuItemSerializer
+#     permission_classes = [IsAuthenticated]
+#     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+#     ordering_fields = ['price']
+#     search_fields = ['category__title']
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
 
-class CategoryListView(generics.ListAPIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]  # or IsManager if needed
+        return [IsAuthenticated()]
+
+# class CategoryListView(generics.ListAPIView):
+#     queryset = Category.objects.all()
+#     serializer_class = CategorySerializer
+#     permission_classes = [IsAuthenticated]
 
 class CartView(APIView):
     permission_classes = [IsAuthenticated]
@@ -61,8 +69,8 @@ class CartView(APIView):
             return Response(status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, item_id):
-        Cart.objects.filter(id=item_id, user=request.user).delete()
+    def delete(self, request):
+        Cart.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class OrderListCreateView(APIView):
@@ -87,7 +95,7 @@ class OrderListCreateView(APIView):
             return Response({"detail": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
         
         total = sum(item.price for item in cart_items)
-        order = Order.objects.create(user=request.user, total=total)
+        order = Order.objects.create(user=request.user, total=total, date=date.today())
         
         for item in cart_items:
             Order_Item.objects.create(
@@ -101,7 +109,7 @@ class OrderListCreateView(APIView):
         return Response({"order_id": order.id}, status=status.HTTP_201_CREATED)
 
 class OrderDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsDeliveryCrew]
     
     def get(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
@@ -163,7 +171,7 @@ class SetItemOfTheDayView(APIView):
             return Response({"error": "Menu item not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class ManagerUserView(APIView): 
-    permission_classes = [IsAuthenticated, IsManager]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
         users = Group.objects.get(name='Manager').user_set.all()
@@ -180,11 +188,13 @@ class ManagerUserView(APIView):
         Group.objects.get(name='Manager').user_set.remove(user)
         return Response(status=status.HTTP_200_OK)
 
-class DeliveryCrewUserView(ManagerUserView):
+class DeliveryCrewUserView(APIView): 
+    permission_classes = [IsAuthenticated, IsManager]
+
     def get(self, request):
         users = Group.objects.get(name='DeliveryCrew').user_set.all()
         return Response(UserSerializer(users, many=True).data, status=status.HTTP_200_OK)
-    
+
     def post(self, request):
         user = User.objects.get(pk=request.data['user_id'])
         crew_group = Group.objects.get(name='DeliveryCrew')
@@ -195,5 +205,3 @@ class DeliveryCrewUserView(ManagerUserView):
         user = User.objects.get(pk=user_id)
         Group.objects.get(name='DeliveryCrew').user_set.remove(user)
         return Response(status=status.HTTP_200_OK)
-
-

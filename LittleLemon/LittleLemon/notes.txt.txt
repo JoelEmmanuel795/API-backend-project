@@ -1,0 +1,60 @@
+==============================
+Little Lemon API - Access Info
+==============================
+
+Superuser (for Django Admin):
+-------------------------------
+Username: admin
+Email: admin@example.com
+Password: adminpass123
+(pre-generated token: 6caa34e312aabfe6fe9537faa278c77c4eb116e3)
+
+Access: http://127.0.0.1:8000/admin/
+
+Used to:
+- Add/edit menu items & categories
+- Create/assign users to groups
+- Manage database entries
+
+User Accounts
+===============================
+
+| Username  | Password         | Group         | Description                          |
+|-----------|------------------|---------------|--------------------------------------|
+| Marco     | marcomanager     | Manager       | Can add/update/delete menu items, assign delivery crew, and set item of the day |
+| Giovanni  | giovannidelivery | DeliveryCrew  | Can view assigned orders and mark them as delivered |
+| John      | johnuser         | (Customer)    | Can register, login, browse menu, add to cart, and place orders |
+
+
+API Testing Guide (use Postman, Insomnia, or curl):
+------------------------------------------------------
+
+Login to get token:
+POST /auth/token/login/
+Body:
+{
+  "username": "Marco",
+  "password": "marcomanager"
+}
+
+Use returned token in headers:
+Authorization: Token <your_token>
+(pre-generated token for Marco: 9e85a24a56bd974614db4294248aee49e39855a7)
+(  Giovanni token -> 644ef2692bea50bd4d1ab0f255945338c6001eb5   )
+( jonas token -> c5f6baddb2386cdd9d1e03b51a7522d3465b2fc9)
+
+Testable Endpoints:
+----------------------
+GET    /api/menuitems/
+POST   /api/cart/menu-items
+GET    /api/cart/menu-items
+POST   /api/orders
+GET    /api/orders
+PATCH  /api/orders/{order_id}
+DELETE /api/cart/menu-items
+
+Example Admin Tasks:
+------------------------
+- Go to /admin
+- Create users or assign to groups (Manager / DeliveryCrew)
+- Add MenuItems and Categories

@@ -8,11 +8,11 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'slug', 'title']
 
 class MenuItemSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())  # ✅ this is key!
 
     class Meta:
         model = MenuItem
-        fields = ['id', 'title', 'price', 'featured', 'category']
+        fields = ['id', 'title', 'price', 'featured', 'category', 'item_of_the_day']
 
 class CartSerializer(serializers.ModelSerializer):
     class Meta:
