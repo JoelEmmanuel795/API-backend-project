@@ -32,8 +32,8 @@ Use returned token in headers:
 ===============================
 (pre-generated admin token: 6caa34e312aabfe6fe9537faa278c77c4eb116e3)
 (pre-generated token for Marco: 9e85a24a56bd974614db4294248aee49e39855a7)
-(  Giovanni token -> 644ef2692bea50bd4d1ab0f255945338c6001eb5   )
-( jonas token -> c5f6baddb2386cdd9d1e03b51a7522d3465b2fc9)
+(  Giovanni token -> 644ef2692bea50bd4d1ab0f255945338c6001eb5   ) 
+( jonas token -> c5f6baddb2386cdd9d1e03b51a7522d3465b2fc9) 
 
 
 API Testing Guide (use Postman, Insomnia, or curl):
