@@ -17,8 +17,17 @@ class MenuItemSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
-        fields = '__all__'
-        read_only_fields = ['unit_price', 'price']
+        fields = ['menuitem', 'quantity']
+
+    def to_internal_value(self, data):
+        # Convert string title to MenuItem PK
+        if 'menuitem' in data and isinstance(data['menuitem'], str):
+            try:
+                item = MenuItem.objects.get(title=data['menuitem'])
+                data['menuitem'] = item.pk
+            except MenuItem.DoesNotExist:
+                raise serializers.ValidationError({"menuitem": "Menu item not found by title."})
+        return super().to_internal_value(data)
 
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:

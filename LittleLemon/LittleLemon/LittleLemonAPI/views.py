@@ -18,17 +18,11 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     ordering_fields = ['price']
 
     def get_permissions(self):
-        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+        if self.request.method in ['POST', 'PUT', 'DELETE']:
             return [IsAdminUser()]  # Only admins (or managers if adjusted) can write
+        if self.request.method in ['PATCH']:
+            return [IsManager()]  # Only admins (or managers if adjusted) can write
         return [IsAuthenticated()]  # Any logged-in user can view
-
-# class MenuItemListView(generics.ListAPIView):
-#     queryset = MenuItem.objects.all()
-#     serializer_class = MenuItemSerializer
-#     permission_classes = [IsAuthenticated]
-#     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-#     ordering_fields = ['price']
-#     search_fields = ['category__title']
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
@@ -39,11 +33,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return [IsAdminUser()]  # or IsManager if needed
         return [IsAuthenticated()]
 
-# class CategoryListView(generics.ListAPIView):
-#     queryset = Category.objects.all()
-#     serializer_class = CategorySerializer
-#     permission_classes = [IsAuthenticated]
-
 class CartView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -53,7 +42,17 @@ class CartView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        serializer = CartSerializer(data=request.data)
+        data = request.data.copy()
+
+        menuitem_value = data.get("menuitem")
+        if menuitem_value and not menuitem_value.isdigit():
+            try:
+                menu = MenuItem.objects.get(title=menuitem_value)
+                data["menuitem"] = menu.pk
+            except MenuItem.DoesNotExist:
+                return Response({"error": "Menu item not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CartSerializer(data=data)
         if serializer.is_valid():
             menu_item = serializer.validated_data['menuitem']
             quantity = serializer.validated_data['quantity']
@@ -66,7 +65,7 @@ class CartView(APIView):
                 unit_price=unit_price,
                 price=total_price
             )
-            return Response(status=status.HTTP_201_CREATED)
+            return Response({"message": "Item added to cart."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -95,7 +94,9 @@ class OrderListCreateView(APIView):
             return Response({"detail": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
         
         total = sum(item.price for item in cart_items)
-        order = Order.objects.create(user=request.user, total=total, date=date.today())
+        order_date = request.data.get("date", date.today())
+        order = Order.objects.create(user=request.user, total=total, date=order_date)
+
         
         for item in cart_items:
             Order_Item.objects.create(
@@ -109,7 +110,7 @@ class OrderListCreateView(APIView):
         return Response({"order_id": order.id}, status=status.HTTP_201_CREATED)
 
 class OrderDetailView(APIView):
-    permission_classes = [IsAuthenticated, IsDeliveryCrew]
+    permission_classes = [IsAuthenticated]
     
     def get(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
@@ -122,7 +123,7 @@ class OrderDetailView(APIView):
         order = get_object_or_404(Order, pk=order_id)
         user = request.user
         
-        if user.groups.filter(name='Manager').exists():
+        if user.groups.filter(name__iexact='manager').exists():
             delivery_crew_id = request.data.get('delivery_crew')
             status_update = request.data.get('status')
             
@@ -140,13 +141,20 @@ class OrderDetailView(APIView):
         elif user.groups.filter(name="DeliveryCrew").exists():
             if order.delivery_crew != user:
                 return Response({"detail": "You do not have permission to update this order."}, status=status.HTTP_403_FORBIDDEN)
-            
-            status_update = request.data.get('status')
-            if status_update in [0, 1]:
-                order.status = status_update
-                order.save()
-                return Response({"detail": "Delivery status updated."}, status=status.HTTP_200_OK)
-            return Response({"error": "Invalid status value."}, status=status.HTTP_400_BAD_REQUEST)
+
+            status_value = request.data.get('status')
+
+            # Accept both string and boolean values
+            if isinstance(status_value, bool):
+                order.status = status_value
+            elif isinstance(status_value, str) and status_value.lower() in ['true', 'false']:
+                order.status = status_value.lower() == 'true'
+            else:
+                return Response({"error": "Invalid status value."}, status=status.HTTP_400_BAD_REQUEST)
+
+            order.save()
+            return Response({"detail": "Delivery status updated."}, status=status.HTTP_200_OK)
+
         
         return Response(status=status.HTTP_403_FORBIDDEN)
     
@@ -178,15 +186,26 @@ class ManagerUserView(APIView):
         return Response(UserSerializer(users, many=True).data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        user = User.objects.get(pk=request.data['user_id'])
+        username = request.data.get('username')
+        if not username:
+            return Response({"error": "Username is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
         manager_group = Group.objects.get(name='Manager')
         manager_group.user_set.add(user)
-        return Response(status=status.HTTP_201_CREATED)
-    
+        return Response({"message": "User added to the manager group"}, status=status.HTTP_200_OK)
+
     def delete(self, request, user_id):
-        user = User.objects.get(pk=user_id)
-        Group.objects.get(name='Manager').user_set.remove(user)
-        return Response(status=status.HTTP_200_OK)
+        try:
+            user = User.objects.get(pk=user_id)
+            Group.objects.get(name='Manager').user_set.remove(user)
+            return Response({"message": "User removed from the manager group"}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class DeliveryCrewUserView(APIView): 
     permission_classes = [IsAuthenticated, IsManager]
@@ -196,10 +215,18 @@ class DeliveryCrewUserView(APIView):
         return Response(UserSerializer(users, many=True).data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        user = User.objects.get(pk=request.data['user_id'])
+        username = request.data.get('username')
+        if not username:
+            return Response({"error": "Username is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
         crew_group = Group.objects.get(name='DeliveryCrew')
         crew_group.user_set.add(user)
-        return Response(status=status.HTTP_201_CREATED)
+        return Response({"message": "User added to the delivery crew group"}, status=status.HTTP_200_OK)
 
     def delete(self, request, user_id):
         user = User.objects.get(pk=user_id)
